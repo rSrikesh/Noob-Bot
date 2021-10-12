@@ -4,14 +4,26 @@ import requests
 import json
 from keep_alive import keep_alive
 import random
+import praw
+
+my_secret = os.environ['token']
+clientid = os.environ['c_id']
+secret = os.environ['c_secret']
+u_name = os.environ['u_name']
+p_word = os.environ['pword']
+usr_agent = os.environ['u_agent']
+
+reddit = praw.Reddit(client_id = clientid ,
+                     client_secret=secret,
+                     username=u_name,
+                     password=p_word,
+                     user_agent=usr_agent,
+                     check_for_async=False)
 
 intents = discord.Intents.default()
 intents.members = True
 
-
-client = discord.Client(intents=intents)
-my_secret = os.environ['token']
-
+client = discord.Client(intents=intents,status=discord.Status.do_not_disturb)
 
 def get_quote():
 
@@ -25,27 +37,20 @@ def facts():
   json_data = json.loads(response.text)
   return json_data['text']
 
-def memes():
-  response = requests.get("https://v2.jokeapi.dev/joke/Any/type=single")
-  json_data = json.loads(response.text)
-  return json_data['joke']
+def meme(category):
+    subreddit = reddit.subreddit(category)
+    all_subs = []
+    top = subreddit.top(limit = 300)
 
-def two_memes():
-  response = requests.get("https://v2.jokeapi.dev/joke/Any?type=twopart")
-  json_data = json.loads(response.text)
-  return json_data['setup'],json_data['delivery']
-
-def ani_quotes():
-  response = requests.get("https://animechan.vercel.app/api/random")
-  json_data = json.loads(response.text)
-  return json_data['anime'],json_data['character'],json_data['quote'] 
-
-def one_piece_chap():
-  x = random.randint(1, 1000)
-  url = "https://onepiececover.com/api/chapters/"+str(x)
-  response = requests.get(url)
-  json_data = json.loads(response.text)
-  return json_data['title'],json_data['chapter'],json_data['summary']
+    for submission in top:
+      all_subs.append(submission)
+    
+    random_sub = random.choice(all_subs)
+    name = random_sub.title
+    url = random_sub.url
+    em = discord.Embed(title=name)
+    em.set_image(url = url)
+    return em
 
 
 @client.event
@@ -57,6 +62,12 @@ async def on_member_join(member):
   guild = client.get_guild(808380934553993278)
   channel = guild.get_channel(808380936651407362)
   await channel.send(f'Welcome to the Server {member.mention}')
+
+@client.event
+async def on_member_remove(member):
+  guild = client.get_guild(808380934553993278)
+  channel = guild.get_channel(808380936651407362)
+  await channel.send(f'See You Soon {member.mention}')
 
 @client.event
 async def on_message(message):
@@ -73,32 +84,14 @@ async def on_message(message):
   if message.content.startswith('>fact'):
     fact = facts()
     await message.channel.send(fact)
-
-  if message.content.startswith('>meme'):
-    meme = memes()
-    await message.channel.send(meme)
-
-  if message.content.startswith('>2meme'):
-    meme1,meme2 = two_memes()
-    await message.channel.send(meme1)
-    await message.channel.send(meme2)
-
-  if message.content.startswith('>quote'):
-    quote1,quote2,quote3 = ani_quotes()
-    final_quote_1 = "Anime: "+quote1
-    final_quote_2 = "Character: "+quote2
-    final_quote_3 = "Quote: "+quote3
-    await message.channel.send(final_quote_1)
-    await message.channel.send(final_quote_2)
-    await message.channel.send(final_quote_3)
   
-  if message.content.startswith('>chap'):
-    title,chapter,summary = one_piece_chap()
-    await message.channel.send(title)
-    await message.channel.send(chapter)
-    await message.channel.send(summary)
-
+  if message.content.startswith('>meme'):
+    em = meme("Meme")
+    await message.channel.send(embed = em)
+  
+  if message.content.startswith('>fp'):
+    em1 = meme("Facepalm")
+    await message.channel.send(embed = em1)
+      
 keep_alive()
 client.run(my_secret)
-
-
